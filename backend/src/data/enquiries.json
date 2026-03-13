@@ -55,9 +55,11 @@
     "productInterest": "Bricks",
     "message": "hii",
     "status": "responded",
-    "adminResponse": "test response",
+    "adminResponse": "hii accepted your enquiry",
     "createdAt": "2026-03-09T18:48:57.607Z",
-    "updatedAt": "2026-03-09T19:08:51.568Z"
+    "updatedAt": "2026-03-13T09:13:38.431Z",
+    "responseEmailStatus": "sent",
+    "responseEmailError": ""
   },
   {
     "id": 10,
@@ -66,10 +68,10 @@
     "email": "rakshitha160306@gmail.com",
     "productInterest": "Bricks",
     "message": "hii",
-    "status": "new",
-    "adminResponse": "",
+    "status": "responded",
+    "adminResponse": "hii i accept",
     "createdAt": "2026-03-09T18:48:57.388Z",
-    "updatedAt": "2026-03-09T18:48:57.388Z"
+    "updatedAt": "2026-03-13T05:49:30.717Z"
   },
   {
     "id": 9,
@@ -78,10 +80,10 @@
     "email": "rakshitha160306@gmail.com",
     "productInterest": "Bricks",
     "message": "hii",
-    "status": "new",
-    "adminResponse": "",
+    "status": "responded",
+    "adminResponse": "accepted your enquirey",
     "createdAt": "2026-03-09T18:48:57.199Z",
-    "updatedAt": "2026-03-09T18:48:57.199Z"
+    "updatedAt": "2026-03-13T05:52:56.059Z"
   },
   {
     "id": 8,
@@ -90,10 +92,10 @@
     "email": "rakshitha160306@gmail.com",
     "productInterest": "Bricks",
     "message": "hii",
-    "status": "new",
-    "adminResponse": "",
+    "status": "responded",
+    "adminResponse": "accepted",
     "createdAt": "2026-03-09T18:48:55.750Z",
-    "updatedAt": "2026-03-09T18:48:55.751Z"
+    "updatedAt": "2026-03-13T06:02:32.754Z"
   },
   {
     "id": 7,

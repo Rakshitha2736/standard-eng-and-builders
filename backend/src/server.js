@@ -10,9 +10,37 @@ import { connectToMongo } from "./data/mongoClient.js";
 const app = express();
 const port = process.env.PORT || 5000;
 
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://standard-eng-and-builders.vercel.app",
+  "https://www.standardengineering.me",
+  "https://standardengineering.me"
+];
+
+const envAllowedOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
+
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"]
+    origin(origin, callback) {
+      // Allow non-browser clients and same-origin calls without an Origin header.
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    }
   })
 );
 app.use(express.json());
@@ -31,6 +59,7 @@ Promise.all([initializeEnquiriesStore(), connectToMongo()])
   .then(() => {
     app.listen(port, () => {
       console.log(`Server running at http://localhost:${port}`);
+      console.log(`Allowed CORS origins: ${allowedOrigins.join(", ")}`);
     });
   })
   .catch((error) => {

@@ -1,4 +1,12 @@
-const API_BASE_URL = "http://localhost:5000/api";
+const API = import.meta.env.VITE_API_URL || "https://standard-eng-and-builders.onrender.com";
+const API_BASE_URL = `${API}/api`;
+
+const shouldLogApiBase =
+  import.meta.env.DEV || String(import.meta.env.VITE_DEBUG_API || "").toLowerCase() === "true";
+
+if (typeof window !== "undefined" && shouldLogApiBase) {
+  console.info("[API] Using base URL:", API_BASE_URL);
+}
 
 async function request(path, options = {}) {
   const requestHeaders = options.headers || {};
@@ -12,7 +20,10 @@ async function request(path, options = {}) {
     headers: mergedHeaders
   });
 
-  const payload = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json")
+    ? await response.json()
+    : { message: (await response.text()) || `HTTP ${response.status}` };
 
   if (!response.ok) {
     throw new Error(payload.message || "Request failed");

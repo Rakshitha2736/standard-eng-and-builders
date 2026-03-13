@@ -84,3 +84,46 @@ npm run dev
 ```
 
 Frontend runs on `http://localhost:5173`.
+
+## Hosted Deployment Notes
+
+If the frontend is deployed on Vercel and the backend is deployed on Render:
+
+- The frontend will call the Render API automatically when it is not running on localhost.
+- The file `backend/.env` is only for local development. Render does not read it from your machine.
+- You must set backend environment variables in Render service settings or via `render.yaml` blueprint sync.
+
+For frontend hosting on a custom domain, set these variables in your frontend host before building:
+
+```bash
+VITE_API_URL=https://standard-eng-and-builders.onrender.com
+VITE_FALLBACK_API_URL=https://standard-eng-and-builders.onrender.com
+```
+
+Do not set `VITE_API_URL` to `http://localhost:5000` in production builds.
+
+Required on Render for admin login and email sending:
+
+```bash
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_admin_password
+ADMIN_JWT_SECRET=your_strong_secret
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+MAIL_FROM="Standard Engineering and Builders <your_email@gmail.com>"
+```
+
+If these are missing on Render:
+
+- Admin login can fail or use unexpected fallback credentials.
+- Enquiries can be saved but customer/admin emails will not be delivered.
+
+After updating Render environment variables, redeploy the backend service.
+
+Also ensure backend CORS allows your frontend domain by setting:
+
+```bash
+CORS_ORIGINS=https://www.standardengineering.me,https://standardengineering.me
+```

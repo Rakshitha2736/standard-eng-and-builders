@@ -44,6 +44,10 @@ export function listEnquiries() {
   return enquiries;
 }
 
+export function getEnquiryById(id) {
+  return enquiries.find((entry) => entry.id === Number(id)) || null;
+}
+
 export async function addEnquiry(payload) {
   const enquiry = {
     id: enquiryCounter++,
@@ -54,6 +58,8 @@ export async function addEnquiry(payload) {
     message: payload.message,
     status: "new",
     adminResponse: "",
+    responseEmailStatus: "not_attempted",
+    responseEmailError: "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -63,15 +69,22 @@ export async function addEnquiry(payload) {
   return enquiry;
 }
 
-export async function respondToEnquiry(id, responseText) {
-  const enquiry = enquiries.find((entry) => entry.id === Number(id));
+export async function respondToEnquiry(
+  id,
+  responseText,
+  responseEmailStatus = "sent",
+  responseEmailError = ""
+) {
+  const enquiry = getEnquiryById(id);
 
   if (!enquiry) {
     return null;
   }
 
   enquiry.adminResponse = responseText;
-  enquiry.status = "responded";
+  enquiry.responseEmailStatus = responseEmailStatus;
+  enquiry.responseEmailError = responseEmailError;
+  enquiry.status = responseEmailStatus === "sent" ? "responded" : "response_failed";
   enquiry.updatedAt = new Date().toISOString();
   await writeEnquiriesToFile();
 

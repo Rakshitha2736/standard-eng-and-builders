@@ -637,6 +637,11 @@ p {
   color: var(--success);
 }
 
+.pill.response-failed {
+  background: #fff5e6;
+  color: #9a5800;
+}
+
 .status-message {
   margin-bottom: 0.9rem;
   padding: 0.7rem 0.8rem;

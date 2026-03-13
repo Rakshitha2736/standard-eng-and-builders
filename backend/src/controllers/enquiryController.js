@@ -1,5 +1,6 @@
 import {
   addEnquiry,
+  getEnquiryById,
   listEnquiries,
   respondToEnquiry
 } from "../data/enquiriesStore.js";
@@ -66,14 +67,20 @@ export async function updateEnquiryResponse(req, res) {
     return;
   }
 
-  const updated = await respondToEnquiry(req.params.id, responseText);
+  const enquiry = getEnquiryById(req.params.id);
 
-  if (!updated) {
+  if (!enquiry) {
     res.status(404).json({ message: "Enquiry not found" });
     return;
   }
 
-  const emailResult = await sendResponseToCustomer(updated, responseText);
+  const emailResult = await sendResponseToCustomer(enquiry, responseText);
+  const updated = await respondToEnquiry(
+    req.params.id,
+    responseText,
+    emailResult.sent ? "sent" : "failed",
+    emailResult.sent ? "" : emailResult.reason || "Unknown SMTP error"
+  );
 
   if (!emailResult.sent) {
     res.json({

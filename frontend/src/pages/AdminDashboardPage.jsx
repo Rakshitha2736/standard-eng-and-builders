@@ -4,10 +4,44 @@ import { fetchEnquiries, loginAdmin, respondToEnquiry } from "../api";
 
 const ADMIN_TOKEN_KEY = "standard_admin_token";
 
+function buildStatusMessage(text = "", tone = "") {
+  return { text, tone };
+}
+
+function getEnquiryStatusMeta(enquiry) {
+  const responseEmailStatus =
+    enquiry.responseEmailStatus ||
+    (enquiry.status === "responded" ? "sent" : "not_attempted");
+
+  if (responseEmailStatus === "failed") {
+    return { label: "Email failed", className: "response-failed" };
+  }
+
+  if (responseEmailStatus === "sent" || enquiry.status === "responded") {
+    return { label: "Responded", className: "responded" };
+  }
+
+  return { label: "New", className: "new" };
+}
+
+function getResponseText(enquiry, responseDrafts) {
+  const draft = responseDrafts[String(enquiry.id)] || "";
+
+  if (draft.trim()) {
+    return draft.trim();
+  }
+
+  if (enquiry.responseEmailStatus === "failed") {
+    return (enquiry.adminResponse || "").trim();
+  }
+
+  return "";
+}
+
 function AdminDashboardPage() {
   const [enquiries, setEnquiries] = useState([]);
   const [responseDrafts, setResponseDrafts] = useState({});
-  const [statusMessage, setStatusMessage] = useState("");
+  const [statusMessage, setStatusMessage] = useState(buildStatusMessage());
   const [token, setToken] = useState(() => localStorage.getItem(ADMIN_TOKEN_KEY));
   const [credentials, setCredentials] = useState({ username: "", password: "" });
 
@@ -23,10 +57,10 @@ function AdminDashboardPage() {
           localStorage.removeItem(ADMIN_TOKEN_KEY);
           setToken("");
           setEnquiries([]);
-          setStatusMessage("");
+          setStatusMessage(buildStatusMessage());
           return;
         }
-        setStatusMessage(error.message);
+        setStatusMessage(buildStatusMessage(error.message, "error"));
       });
   }
 
@@ -38,16 +72,16 @@ function AdminDashboardPage() {
 
   async function handleLogin(event) {
     event.preventDefault();
-    setStatusMessage("");
+    setStatusMessage(buildStatusMessage());
 
     try {
       const payload = await loginAdmin(credentials);
       localStorage.setItem(ADMIN_TOKEN_KEY, payload.token);
       setToken(payload.token);
       setCredentials({ username: "", password: "" });
-      setStatusMessage("Admin login successful.");
+      setStatusMessage(buildStatusMessage("Admin login successful.", "success"));
     } catch (error) {
-      setStatusMessage(error.message);
+      setStatusMessage(buildStatusMessage(error.message, "error"));
     }
   }
 
@@ -55,25 +89,31 @@ function AdminDashboardPage() {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     setToken("");
     setEnquiries([]);
-    setStatusMessage("Logged out.");
+    setStatusMessage(buildStatusMessage("Logged out.", "success"));
   }
 
   async function handleRespond(id) {
     const draftKey = String(id);
-    const text = (responseDrafts[draftKey] || "").trim();
+    const enquiry = enquiries.find((item) => String(item.id) === draftKey);
+    const text = enquiry ? getResponseText(enquiry, responseDrafts) : "";
 
     if (!text) {
-      setStatusMessage("Please enter a response message.");
+      setStatusMessage(buildStatusMessage("Please enter a response message.", "warning"));
       return;
     }
 
     try {
       const payload = await respondToEnquiry(id, text, token);
-      setStatusMessage(payload.message || "Response saved.");
+      setStatusMessage(
+        buildStatusMessage(
+          payload.message || "Response saved.",
+          payload.emailStatus?.sent ? "success" : "warning"
+        )
+      );
       setResponseDrafts((prev) => ({ ...prev, [draftKey]: "" }));
       loadEnquiries(token);
     } catch (error) {
-      setStatusMessage(error.message);
+      setStatusMessage(buildStatusMessage(error.message, "error"));
     }
   }
 
@@ -86,7 +126,9 @@ function AdminDashboardPage() {
           <h1>Admin Login</h1>
         </header>
 
-        {statusMessage && <p className="status-message">{statusMessage}</p>}
+        {statusMessage.text && (
+          <p className={`status-message ${statusMessage.tone}`.trim()}>{statusMessage.text}</p>
+        )}
 
         <form className="admin-login-form" onSubmit={handleLogin}>
           <label>
@@ -130,55 +172,67 @@ function AdminDashboardPage() {
         </button>
       </header>
 
-      {statusMessage && <p className="status-message">{statusMessage}</p>}
+      {statusMessage.text && (
+        <p className={`status-message ${statusMessage.tone}`.trim()}>{statusMessage.text}</p>
+      )}
 
       <div className="admin-list">
         {enquiries.length === 0 && (
           <p className="status-message">No enquiries submitted yet.</p>
         )}
 
-        {enquiries.map((enquiry) => (
-          <article key={enquiry.id} className="admin-card">
-            <div className="admin-card-top">
-              <h3>{enquiry.name}</h3>
-              <span className={`pill ${enquiry.status}`}>{enquiry.status}</span>
-            </div>
-            <p>
-              <strong>Product:</strong> {enquiry.productInterest}
-            </p>
-            <p>
-              <strong>Contact:</strong> {enquiry.contactNumber} | {enquiry.email}
-            </p>
-            <p>
-              <strong>Message:</strong> {enquiry.message}
-            </p>
-            {enquiry.adminResponse && (
-              <p>
-                <strong>Previous Response:</strong> {enquiry.adminResponse}
-              </p>
-            )}
+        {enquiries.map((enquiry) => {
+          const statusMeta = getEnquiryStatusMeta(enquiry);
+          const responseText = getResponseText(enquiry, responseDrafts);
 
-            <textarea
-              rows="3"
-              placeholder="Write response to customer"
-              value={responseDrafts[String(enquiry.id)] || ""}
-              onChange={(event) =>
-                setResponseDrafts((prev) => ({
-                  ...prev,
-                  [String(enquiry.id)]: event.target.value
-                }))
-              }
-            />
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => handleRespond(enquiry.id)}
-              disabled={!((responseDrafts[String(enquiry.id)] || "").trim())}
-            >
-              Send Response
-            </button>
-          </article>
-        ))}
+          return (
+            <article key={enquiry.id} className="admin-card">
+              <div className="admin-card-top">
+                <h3>{enquiry.name}</h3>
+                <span className={`pill ${statusMeta.className}`}>{statusMeta.label}</span>
+              </div>
+              <p>
+                <strong>Product:</strong> {enquiry.productInterest}
+              </p>
+              <p>
+                <strong>Contact:</strong> {enquiry.contactNumber} | {enquiry.email}
+              </p>
+              <p>
+                <strong>Message:</strong> {enquiry.message}
+              </p>
+              {enquiry.adminResponse && (
+                <p>
+                  <strong>Previous Response:</strong> {enquiry.adminResponse}
+                </p>
+              )}
+              {enquiry.responseEmailError && (
+                <p className="status-message warning">
+                  Customer email failed: {enquiry.responseEmailError}
+                </p>
+              )}
+
+              <textarea
+                rows="3"
+                placeholder="Write response to customer"
+                value={responseDrafts[String(enquiry.id)] || ""}
+                onChange={(event) =>
+                  setResponseDrafts((prev) => ({
+                    ...prev,
+                    [String(enquiry.id)]: event.target.value
+                  }))
+                }
+              />
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => handleRespond(enquiry.id)}
+                disabled={!responseText}
+              >
+                {enquiry.responseEmailStatus === "failed" ? "Retry Email" : "Send Response"}
+              </button>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
