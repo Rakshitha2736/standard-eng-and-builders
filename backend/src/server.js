@@ -16,7 +16,9 @@ app.use(
   })
 );
 app.use(express.json());
-
+app.get("/", (req, res) => {
+  res.send("Standard Engineering & Builders API is running");
+});
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
