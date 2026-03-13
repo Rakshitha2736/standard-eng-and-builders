@@ -32,8 +32,14 @@ async function request(path, options = {}) {
   return payload;
 }
 
-export function fetchProducts() {
-  return request("/products");
+export async function fetchProducts() {
+  const products = await request("/products");
+  
+  // Convert all HTTP image URLs to HTTPS for mixed content safety
+  return products.map((product) => ({
+    ...product,
+    image: (product.image || "").replace(/^http:\/\//, "https://")
+  }));
 }
 
 export function fetchProduct(id) {

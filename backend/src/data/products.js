@@ -279,7 +279,7 @@ export const products = [
     description:
       "We execute commercial building projects from planning and structural work to final handover. The focus is on functionality, compliance, and long-term operational efficiency. Suitable for showrooms, offices, schools, and mixed-use properties.",
     image:
-      "http://www.liveenhanced.com/wp-content/uploads/2018/03/Commercial-Building-Design-28.jpg",
+      "https://www.liveenhanced.com/wp-content/uploads/2018/03/Commercial-Building-Design-28.jpg",
     specs: {
       material: "Project-specific approved materials",
       operation: "Design, build, and project management",
