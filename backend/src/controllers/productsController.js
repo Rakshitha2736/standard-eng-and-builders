@@ -7,35 +7,117 @@ function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildSpecs(input = {}) {
-  return {
-    material: String(input.material || "").trim(),
-    operation: String(input.operation || "").trim(),
-    width: String(input.width || "").trim(),
-    finish: String(input.finish || "").trim()
-  };
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function buildSpecs(input = {}, { isUpdate = false } = {}) {
+  if (!isUpdate) {
+    return {
+      material: String(input.material || "").trim(),
+      operation: String(input.operation || "").trim(),
+      width: String(input.width || "").trim(),
+      finish: String(input.finish || "").trim()
+    };
+  }
+
+  const partialSpecs = {};
+
+  if (hasOwn(input, "material")) {
+    partialSpecs.material = String(input.material || "").trim();
+  }
+
+  if (hasOwn(input, "operation")) {
+    partialSpecs.operation = String(input.operation || "").trim();
+  }
+
+  if (hasOwn(input, "width")) {
+    partialSpecs.width = String(input.width || "").trim();
+  }
+
+  if (hasOwn(input, "finish")) {
+    partialSpecs.finish = String(input.finish || "").trim();
+  }
+
+  return partialSpecs;
 }
 
 function normalizeProductPayload(payload = {}, { isUpdate = false } = {}) {
-  const normalized = {
-    name: String(payload.name || "").trim(),
-    category: String(payload.category || "").trim(),
-    shortDescription: String(payload.shortDescription || "").trim(),
-    description: String(payload.description || "").trim(),
-    image: String(payload.image || "").trim(),
-    price: String(payload.price || "").trim(),
-    specs: buildSpecs(payload.specs)
-  };
+  if (!isUpdate) {
+    const normalized = {
+      name: String(payload.name || "").trim(),
+      category: String(payload.category || "").trim(),
+      shortDescription: String(payload.shortDescription || "").trim(),
+      description: String(payload.description || "").trim(),
+      image: String(payload.image || "").trim(),
+      price: String(payload.price || "").trim(),
+      specs: buildSpecs(payload.specs)
+    };
 
-  if (!isUpdate && (!normalized.name || !normalized.category)) {
-    return { error: "Product name and category are required" };
+    if (!normalized.name || !normalized.category) {
+      return { error: "Product name and category are required" };
+    }
+
+    return { value: normalized };
   }
 
-  if (isUpdate && !normalized.name && !normalized.category) {
+  const normalized = {};
+
+  if (hasOwn(payload, "name")) {
+    normalized.name = String(payload.name || "").trim();
+  }
+
+  if (hasOwn(payload, "category")) {
+    normalized.category = String(payload.category || "").trim();
+  }
+
+  if (hasOwn(payload, "shortDescription")) {
+    normalized.shortDescription = String(payload.shortDescription || "").trim();
+  }
+
+  if (hasOwn(payload, "description")) {
+    normalized.description = String(payload.description || "").trim();
+  }
+
+  if (hasOwn(payload, "image")) {
+    normalized.image = String(payload.image || "").trim();
+  }
+
+  if (hasOwn(payload, "price")) {
+    normalized.price = String(payload.price || "").trim();
+  }
+
+  if (hasOwn(payload, "specs")) {
+    normalized.specs = buildSpecs(payload.specs || {}, { isUpdate: true });
+  }
+
+  if (!Object.keys(normalized).length) {
+    return { error: "At least one product field is required" };
+  }
+
+  if (hasOwn(normalized, "name") && !normalized.name) {
+    return { error: "Product name cannot be empty" };
+  }
+
+  if (hasOwn(normalized, "category") && !normalized.category) {
     return { error: "Product name and category are required" };
   }
 
   return { value: normalized };
+}
+
+function mergeProduct(existingProduct, updates) {
+  const now = new Date().toISOString();
+
+  return {
+    ...existingProduct,
+    ...updates,
+    specs: {
+      ...(existingProduct.specs || {}),
+      ...(updates.specs || {})
+    },
+    updatedAt: now
+  };
 }
 
 function buildProductId(name = "product") {
@@ -123,6 +205,8 @@ export async function createProduct(req, res) {
 
   const newProduct = {
     id: buildProductId(value.name),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     ...value
   };
 
@@ -161,19 +245,26 @@ export async function updateProduct(req, res) {
       return;
     }
 
-    localProducts[index] = {
-      ...localProducts[index],
-      ...value
-    };
+    localProducts[index] = mergeProduct(localProducts[index], value);
 
     res.json(localProducts[index]);
     return;
   }
 
   try {
+    const existingProductDoc = await productsCollection.findOne({ id: req.params.id });
+
+    if (!existingProductDoc) {
+      res.status(404).json({ message: "Product not found" });
+      return;
+    }
+
+    const { _id, ...existingProduct } = existingProductDoc;
+    const updatedProduct = mergeProduct(existingProduct, value);
+
     const result = await productsCollection.updateOne(
       { id: req.params.id },
-      { $set: value }
+      { $set: updatedProduct }
     );
 
     if (!result.matchedCount) {
@@ -181,14 +272,6 @@ export async function updateProduct(req, res) {
       return;
     }
 
-    const updatedProductDoc = await productsCollection.findOne({ id: req.params.id });
-
-    if (!updatedProductDoc) {
-      res.status(404).json({ message: "Product not found" });
-      return;
-    }
-
-    const { _id, ...updatedProduct } = updatedProductDoc;
     res.json(updatedProduct);
   } catch (updateError) {
     console.error("Failed to update product in MongoDB", updateError);

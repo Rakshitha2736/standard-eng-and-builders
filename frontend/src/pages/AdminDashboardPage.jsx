@@ -242,16 +242,21 @@ function AdminDashboardPage() {
 
     try {
       if (editingProductId) {
-        await updateProduct(editingProductId, payload, token);
+        const updatedProduct = await updateProduct(editingProductId, payload, token);
+        setProducts((prev) =>
+          prev.map((product) =>
+            product.id === updatedProduct.id ? updatedProduct : product
+          )
+        );
         setStatusMessage(buildStatusMessage("Product updated successfully.", "success"));
       } else {
-        await createProduct(payload, token);
+        const createdProduct = await createProduct(payload, token);
+        setProducts((prev) => [createdProduct, ...prev]);
         setStatusMessage(buildStatusMessage("Product added successfully.", "success"));
       }
 
       setEditingProductId("");
       setProductForm(createEmptyProductForm());
-      loadProducts();
     } catch (error) {
       setStatusMessage(buildStatusMessage(error.message, "error"));
     }
@@ -283,8 +288,8 @@ function AdminDashboardPage() {
         setEditingProductId("");
         setProductForm(createEmptyProductForm());
       }
+      setProducts((prev) => prev.filter((item) => item.id !== product.id));
       setStatusMessage(buildStatusMessage("Product deleted successfully.", "success"));
-      loadProducts();
     } catch (error) {
       setStatusMessage(buildStatusMessage(error.message, "error"));
     }
