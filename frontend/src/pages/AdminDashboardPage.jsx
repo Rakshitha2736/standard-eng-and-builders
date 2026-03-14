@@ -109,6 +109,7 @@ function mapProductToForm(product) {
 }
 
 function AdminDashboardPage() {
+  const [productFormMode, setProductFormMode] = useState("create");
   const [activeTab, setActiveTab] = useState("responses");
   const [enquiries, setEnquiries] = useState([]);
   const [products, setProducts] = useState([]);
@@ -241,7 +242,24 @@ function AdminDashboardPage() {
     };
 
     try {
-      if (editingProductId) {
+      if (productFormMode === "edit") {
+        if (!editingProductId) {
+          setStatusMessage(buildStatusMessage("No product selected for editing.", "error"));
+          return;
+        }
+
+        const productStillExists = products.some((product) => product.id === editingProductId);
+
+        if (!productStillExists) {
+          setStatusMessage(
+            buildStatusMessage(
+              "Selected product is no longer available. Reload products and try again.",
+              "error"
+            )
+          );
+          return;
+        }
+
         const updatedProduct = await updateProduct(editingProductId, payload, token);
         setProducts((prev) =>
           prev.map((product) =>
@@ -255,6 +273,7 @@ function AdminDashboardPage() {
         setStatusMessage(buildStatusMessage("Product added successfully.", "success"));
       }
 
+      setProductFormMode("create");
       setEditingProductId("");
       setProductForm(createEmptyProductForm());
     } catch (error) {
@@ -264,12 +283,14 @@ function AdminDashboardPage() {
 
   function handleEditProduct(product) {
     setActiveTab("products");
+    setProductFormMode("edit");
     setEditingProductId(product.id);
     setProductForm(mapProductToForm(product));
     setStatusMessage(buildStatusMessage(`Editing ${product.name}`, "warning"));
   }
 
   function handleCancelEdit() {
+    setProductFormMode("create");
     setEditingProductId("");
     setProductForm(createEmptyProductForm());
     setStatusMessage(buildStatusMessage("Edit canceled.", "success"));
@@ -285,6 +306,7 @@ function AdminDashboardPage() {
     try {
       await deleteProduct(product.id, token);
       if (editingProductId === product.id) {
+        setProductFormMode("create");
         setEditingProductId("");
         setProductForm(createEmptyProductForm());
       }
@@ -439,7 +461,11 @@ function AdminDashboardPage() {
       {activeTab === "products" && (
         <div className="admin-products-layout">
           <form className="admin-product-form" onSubmit={handleProductSubmit}>
-            <h2>{editingProductId ? "Edit Product" : "Add Product"}</h2>
+              <h2>{productFormMode === "edit" ? "Edit Product" : "Add Product"}</h2>
+
+              {productFormMode === "edit" && (
+                <p className="status-message warning">Editing product ID: {editingProductId}</p>
+              )}
 
             <label>
               Name
@@ -521,9 +547,9 @@ function AdminDashboardPage() {
 
             <div className="admin-product-form-actions">
               <button type="submit" className="btn btn-primary">
-                {editingProductId ? "Update Product" : "Add Product"}
+                {productFormMode === "edit" ? "Update Product" : "Add Product"}
               </button>
-              {editingProductId && (
+              {productFormMode === "edit" && (
                 <button type="button" className="btn btn-light" onClick={handleCancelEdit}>
                   Cancel Edit
                 </button>
