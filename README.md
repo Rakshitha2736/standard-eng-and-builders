@@ -14,7 +14,7 @@ This workspace is split into separate folders as requested:
 - Admin dashboard with login, enquiry viewing, and response management
 - Responsive industrial/professional design (steel gray, blue, white)
 - Top navigation: Home, Products, Enquiry, Contact
-- Enquiry persistence using JSON file storage (`backend/src/data/enquiries.json`)
+- Enquiry persistence using MongoDB (with JSON file fallback only when MongoDB is not configured)
 - Enquiry email notifications to admin inboxes
 
 ## Run Backend
@@ -27,9 +27,9 @@ npm run dev
 
 Backend runs on `http://localhost:5000`.
 
-## MongoDB Products (Optional)
+## MongoDB Atlas Setup (Products, Enquiries, Admin)
 
-Products can now be served from MongoDB instead of `backend/src/data/products.js`.
+Products, enquiries, and admin credentials can be served from MongoDB Atlas.
 
 Set these variables in `backend/.env`:
 
@@ -37,6 +37,14 @@ Set these variables in `backend/.env`:
 MONGODB_URI=mongodb://127.0.0.1:27017
 MONGODB_DB_NAME=standard-engineering
 MONGODB_PRODUCTS_COLLECTION=products
+MONGODB_ENQUIRIES_COLLECTION=enquiries
+MONGODB_ADMINS_COLLECTION=admins
+```
+
+Atlas example:
+
+```bash
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
 ```
 
 Then replace existing products in MongoDB (Mongo shell in Compass):
@@ -47,7 +55,7 @@ db.products.deleteMany({});
 db.products.insertMany([/* paste product objects here */]);
 ```
 
-If `MONGODB_URI` is not set or connection fails, backend automatically falls back to file-based products.
+If `MONGODB_URI` is not set or connection fails, backend automatically falls back to file-based products/enquiries and env-based admin login.
 
 ## Enquiry Email Notification Setup
 
@@ -70,10 +78,9 @@ Note: For Gmail, use an App Password if 2FA is enabled.
 
 ## Admin Login
 
-- Default username: `admin`
-- Default password: `admin123`
-
-You can override these values using environment variables. Copy `backend/.env.example` and set your values before running in production.
+- Atlas-first: Admin credentials are read from MongoDB collection `admins`.
+- First startup seed: if no admin exists, backend inserts one using `ADMIN_USERNAME` and `ADMIN_PASSWORD` env values.
+- Fallback mode (no MongoDB): uses `ADMIN_USERNAME` and `ADMIN_PASSWORD` directly from environment.
 
 ## Run Frontend
 

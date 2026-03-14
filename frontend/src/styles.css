@@ -420,6 +420,11 @@ p {
   background: var(--white);
 }
 
+.btn-danger {
+  background: var(--danger);
+  color: var(--white);
+}
+
 .btn-outline {
   border: 1px solid #87b8dd;
   color: var(--blue-600);
@@ -614,6 +619,96 @@ p {
   gap: 0.9rem;
 }
 
+.admin-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-tabs button {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-tabs button.active {
+  background: var(--steel-900);
+  color: var(--white);
+}
+
+.admin-products-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.admin-product-form {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.admin-product-form label,
+.admin-product-specs label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.admin-product-form input,
+.admin-product-form textarea,
+.admin-product-specs input {
+  border: 1px solid #bfccda;
+  border-radius: 10px;
+  padding: 0.65rem;
+  font: inherit;
+}
+
+.admin-product-specs {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.admin-product-form-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.admin-product-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.admin-product-card {
+  gap: 0.75rem;
+}
+
+.admin-spec-grid {
+  margin-top: 0.1rem;
+}
+
+.admin-product-price {
+  font-size: 1.05rem;
+  color: var(--steel-900);
+}
+
+.admin-product-actions {
+  display: flex;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
 .admin-card-top {
   display: flex;
   justify-content: space-between;
@@ -707,6 +802,10 @@ p {
     grid-template-columns: 1fr;
   }
 
+  .admin-products-layout {
+    grid-template-columns: 1fr;
+  }
+
   .hero-slider {
     min-height: 320px;
   }
@@ -763,5 +862,14 @@ p {
 
   .hero-slider {
     min-height: 260px;
+  }
+
+  .admin-tabs {
+    flex-wrap: wrap;
+  }
+
+  .admin-product-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }

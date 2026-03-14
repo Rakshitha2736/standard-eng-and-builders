@@ -77,3 +77,32 @@ export function respondToEnquiry(id, response, token) {
     body: JSON.stringify({ response })
   });
 }
+
+export function createProduct(product, token) {
+  return request("/products", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(product)
+  });
+}
+
+export function updateProduct(id, product, token) {
+  return request(`/products/${id}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(product)
+  });
+}
+
+export function deleteProduct(id, token) {
+  return request(`/products/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}

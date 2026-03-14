@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { getEnquiriesCollection } from "./mongoClient.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -8,6 +9,28 @@ const enquiriesFilePath = path.join(__dirname, "enquiries.json");
 
 let enquiries = [];
 let enquiryCounter = 1;
+
+function normalizeEnquiryDocument(entry = {}) {
+  const { _id, ...cleaned } = entry;
+  return cleaned;
+}
+
+async function ensureMongoIndexes(collection) {
+  await Promise.all([
+    collection.createIndex({ id: 1 }, { unique: true }),
+    collection.createIndex({ createdAt: -1 })
+  ]);
+}
+
+async function getNextEnquiryId(collection) {
+  const latest = await collection
+    .find({}, { projection: { id: 1 } })
+    .sort({ id: -1 })
+    .limit(1)
+    .toArray();
+
+  return Number(latest[0]?.id || 0) + 1;
+}
 
 async function writeEnquiriesToFile() {
   await fs.writeFile(
@@ -18,6 +41,13 @@ async function writeEnquiriesToFile() {
 }
 
 export async function initializeEnquiriesStore() {
+  const collection = getEnquiriesCollection();
+
+  if (collection) {
+    await ensureMongoIndexes(collection);
+    return;
+  }
+
   try {
     const raw = await fs.readFile(enquiriesFilePath, "utf-8");
     const parsed = JSON.parse(raw);
@@ -40,17 +70,34 @@ export async function initializeEnquiriesStore() {
   await writeEnquiriesToFile();
 }
 
-export function listEnquiries() {
+export async function listEnquiries() {
+  const collection = getEnquiriesCollection();
+
+  if (collection) {
+    const mongoEnquiries = await collection.find({}).sort({ createdAt: -1 }).toArray();
+    return mongoEnquiries.map(normalizeEnquiryDocument);
+  }
+
   return enquiries;
 }
 
-export function getEnquiryById(id) {
-  return enquiries.find((entry) => entry.id === Number(id)) || null;
+export async function getEnquiryById(id) {
+  const collection = getEnquiriesCollection();
+  const normalizedId = Number(id);
+
+  if (collection) {
+    const enquiry = await collection.findOne({ id: normalizedId });
+    return enquiry ? normalizeEnquiryDocument(enquiry) : null;
+  }
+
+  return enquiries.find((entry) => entry.id === normalizedId) || null;
 }
 
 export async function addEnquiry(payload) {
+  const collection = getEnquiriesCollection();
+  const now = new Date().toISOString();
   const enquiry = {
-    id: enquiryCounter++,
+    id: 0,
     name: payload.name,
     contactNumber: payload.contactNumber,
     email: payload.email,
@@ -60,9 +107,17 @@ export async function addEnquiry(payload) {
     adminResponse: "",
     responseEmailStatus: "not_attempted",
     responseEmailError: "",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    createdAt: now,
+    updatedAt: now
   };
+
+  if (collection) {
+    enquiry.id = await getNextEnquiryId(collection);
+    await collection.insertOne(enquiry);
+    return enquiry;
+  }
+
+  enquiry.id = enquiryCounter++;
 
   enquiries.unshift(enquiry);
   await writeEnquiriesToFile();
@@ -75,7 +130,32 @@ export async function respondToEnquiry(
   responseEmailStatus = "sent",
   responseEmailError = ""
 ) {
-  const enquiry = getEnquiryById(id);
+  const collection = getEnquiriesCollection();
+  const normalizedId = Number(id);
+
+  if (collection) {
+    const result = await collection.updateOne(
+      { id: normalizedId },
+      {
+        $set: {
+          adminResponse: responseText,
+          responseEmailStatus,
+          responseEmailError,
+          status: responseEmailStatus === "sent" ? "responded" : "response_failed",
+          updatedAt: new Date().toISOString()
+        }
+      }
+    );
+
+    if (!result.matchedCount) {
+      return null;
+    }
+
+    const updated = await collection.findOne({ id: normalizedId });
+    return updated ? normalizeEnquiryDocument(updated) : null;
+  }
+
+  const enquiry = await getEnquiryById(normalizedId);
 
   if (!enquiry) {
     return null;
