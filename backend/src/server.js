@@ -61,7 +61,11 @@ app.use(
 );
 app.use(express.json());
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.json({
+    status: "ok",
+    frontendBuildDetected: hasFrontendBuild,
+    frontendDistPath
+  });
 });
 app.get("/api", (req, res) => {
   res.send("Standard Engineering & Builders API is running");
@@ -89,6 +93,7 @@ Promise.all([initializeEnquiriesStore(), connectToMongo()])
     app.listen(port, () => {
       console.log(`Server running at http://localhost:${port}`);
       console.log(`Allowed CORS origins: ${allowedOrigins.join(", ")}`);
+      console.log(`Frontend build detected: ${hasFrontendBuild} (${frontendDistPath})`);
     });
   })
   .catch((error) => {
