@@ -10,9 +10,15 @@ import {
   updateProduct
 } from "../api";
 
-const ADMIN_TOKEN_KEY = "standard_admin_token";
+const ADMIN_TOKEN_KEY = "standard_admin_token_v2";
+const LEGACY_ADMIN_TOKEN_KEY = "standard_admin_token";
 
 function readStoredAdminToken() {
+  // One-time cleanup for legacy token key from older deployments.
+  if (localStorage.getItem(LEGACY_ADMIN_TOKEN_KEY) && !localStorage.getItem(ADMIN_TOKEN_KEY)) {
+    localStorage.removeItem(LEGACY_ADMIN_TOKEN_KEY);
+  }
+
   const storedToken = localStorage.getItem(ADMIN_TOKEN_KEY);
 
   if (!storedToken) {
@@ -153,6 +159,7 @@ function AdminDashboardPage() {
 
     try {
       const payload = await loginAdmin(credentials);
+      setActiveTab("responses");
       localStorage.setItem(ADMIN_TOKEN_KEY, payload.token);
       setToken(payload.token);
       setCredentials({ username: "", password: "" });
@@ -164,6 +171,7 @@ function AdminDashboardPage() {
 
   function handleLogout() {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_ADMIN_TOKEN_KEY);
     setToken("");
     setEnquiries([]);
     setProducts([]);

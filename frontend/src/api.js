@@ -26,7 +26,8 @@ async function request(path, options = {}) {
     : { message: (await response.text()) || `HTTP ${response.status}` };
 
   if (!response.ok) {
-    throw new Error(payload.message || "Request failed");
+    const normalizedMessage = String(payload.message || "").replace(/<[^>]+>/g, " ").trim();
+    throw new Error(normalizedMessage || `HTTP ${response.status}`);
   }
 
   return payload;
