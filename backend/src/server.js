@@ -17,6 +17,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 const frontendDistPath = path.resolve(__dirname, "../../frontend/dist");
 const frontendIndexPath = path.join(frontendDistPath, "index.html");
+const hasFrontendBuild = fs.existsSync(frontendIndexPath);
 
 const defaultAllowedOrigins = [
   "http://localhost:5173",
@@ -59,22 +60,27 @@ app.use(
   })
 );
 app.use(express.json());
-app.get("/", (req, res) => {
-  res.send("Standard Engineering & Builders API is running");
-});
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
+});
+app.get("/api", (req, res) => {
+  res.send("Standard Engineering & Builders API is running");
 });
 
 app.use("/api/admin", authRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/enquiries", enquiryRoutes);
 
-if (fs.existsSync(frontendDistPath)) {
+if (hasFrontendBuild) {
   app.use(express.static(frontendDistPath));
 
   app.get(/^(?!\/api).*/, (req, res) => {
     res.sendFile(frontendIndexPath);
+  });
+} else {
+  // Local fallback when frontend build is not present.
+  app.get("/", (req, res) => {
+    res.send("Standard Engineering & Builders API is running");
   });
 }
 
