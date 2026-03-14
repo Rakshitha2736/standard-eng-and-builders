@@ -1,18 +1,27 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import enquiryRoutes from "./routes/enquiryRoutes.js";
 import productsRoutes from "./routes/productsRoutes.js";
 import { initializeEnquiriesStore } from "./data/enquiriesStore.js";
 import { connectToMongo } from "./data/mongoClient.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const port = process.env.PORT || 5000;
+const frontendDistPath = path.resolve(__dirname, "../../frontend/dist");
+const frontendIndexPath = path.join(frontendDistPath, "index.html");
 
 const defaultAllowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "https://standard-eng-and-builders.onrender.com",
   "https://standard-eng-and-builders.vercel.app",
   "https://www.standardengineering.me",
   "https://standardengineering.me"
@@ -39,6 +48,12 @@ app.use(
         return;
       }
 
+      // Allow Render-hosted frontend origins when app is deployed as a single service.
+      if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin)) {
+        callback(null, true);
+        return;
+      }
+
       callback(new Error("Not allowed by CORS"));
     }
   })
@@ -54,6 +69,14 @@ app.get("/api/health", (req, res) => {
 app.use("/api/admin", authRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/enquiries", enquiryRoutes);
+
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(frontendIndexPath);
+  });
+}
 
 Promise.all([initializeEnquiriesStore(), connectToMongo()])
   .then(() => {

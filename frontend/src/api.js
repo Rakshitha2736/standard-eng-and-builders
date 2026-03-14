@@ -1,5 +1,13 @@
-const API = import.meta.env.VITE_API_URL || "https://standard-eng-and-builders.onrender.com";
-const API_BASE_URL = `${API}/api`;
+const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
+const isLocalhostRuntime =
+  typeof window !== "undefined" &&
+  ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+// For local development without VITE_API_URL, default to local backend.
+// In deployment, default to same-origin (/api) so frontend+backend can share one Render service.
+const API_ROOT = (configuredApiUrl || (isLocalhostRuntime ? "http://localhost:5000" : ""))
+  .replace(/\/+$/, "");
+const API_BASE_URL = API_ROOT ? `${API_ROOT}/api` : "/api";
 
 const shouldLogApiBase =
   import.meta.env.DEV || String(import.meta.env.VITE_DEBUG_API || "").toLowerCase() === "true";
