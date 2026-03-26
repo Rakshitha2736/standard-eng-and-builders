@@ -457,7 +457,6 @@ function AdminDashboardPage() {
 
           {enquiries.map((enquiry, enquiryIndex) => {
             const statusMeta = getEnquiryStatusMeta(enquiry);
-            const responseText = getResponseText(enquiry, responseDrafts);
 
             return (
               <article key={buildAdminRowKey(enquiry, enquiryIndex)} className="admin-card">
@@ -479,31 +478,6 @@ function AdminDashboardPage() {
                     <strong>Previous Response:</strong> {enquiry.adminResponse}
                   </p>
                 )}
-                {enquiry.responseEmailError && (
-                  <p className="status-message warning">
-                    Customer email failed: {enquiry.responseEmailError}
-                  </p>
-                )}
-
-                <textarea
-                  rows="3"
-                  placeholder="Write response to customer"
-                  value={responseDrafts[String(enquiry.id)] || ""}
-                  onChange={(event) =>
-                    setResponseDrafts((prev) => ({
-                      ...prev,
-                      [String(enquiry.id)]: event.target.value
-                    }))
-                  }
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => handleRespond(enquiry.id)}
-                  disabled={!responseText}
-                >
-                  {enquiry.responseEmailStatus === "failed" ? "Retry Email" : "Send Response"}
-                </button>
               </article>
             );
           })}
