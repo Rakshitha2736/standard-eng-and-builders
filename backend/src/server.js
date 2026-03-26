@@ -44,6 +44,12 @@ app.use(
         return;
       }
 
+      // Allow local frontend dev servers regardless of Vite port (e.g., 5173, 5174).
+      if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/i.test(origin)) {
+        callback(null, true);
+        return;
+      }
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
         return;

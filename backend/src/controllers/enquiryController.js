@@ -97,7 +97,7 @@ export async function updateEnquiryResponse(req, res) {
     if (!emailResult.sent) {
       res.json({
         message:
-          "Response saved, but customer email could not be sent. Please check SMTP settings.",
+          "Response saved, but response email could not be sent to configured recipients. Please check SMTP settings.",
         enquiry: updated,
         emailStatus: emailResult
       });
@@ -105,12 +105,58 @@ export async function updateEnquiryResponse(req, res) {
     }
 
     res.json({
-      message: "Response saved and email sent to customer.",
+      message: "Response saved and email sent to configured recipients.",
       enquiry: updated,
       emailStatus: emailResult
     });
   } catch (error) {
     console.error("Failed to respond to enquiry", error);
     res.status(500).json({ message: "Failed to update enquiry response" });
+  }
+}
+
+export async function sendTestCustomerEmail(req, res) {
+  try {
+    const email = String(req.body?.email || "").trim();
+    const responseText = String(
+      req.body?.message ||
+        "This is a test email from Standard Engineering and Builders admin panel."
+    ).trim();
+
+    if (!email) {
+      res.status(400).json({ message: "Customer email is required" });
+      return;
+    }
+
+    if (isInvalidEmail(email)) {
+      res.status(400).json({ message: "Invalid email address" });
+      return;
+    }
+
+    const emailResult = await sendResponseToCustomer(
+      {
+        name: "Customer",
+        email,
+        message: "SMTP delivery test initiated by admin.",
+        productInterest: "General Enquiry"
+      },
+      responseText
+    );
+
+    if (!emailResult.sent) {
+      res.status(502).json({
+        message: "Test email could not be sent. Please check SMTP settings.",
+        emailStatus: emailResult
+      });
+      return;
+    }
+
+    res.json({
+      message: `Test email sent successfully to ${email}.`,
+      emailStatus: emailResult
+    });
+  } catch (error) {
+    console.error("Failed to send test customer email", error);
+    res.status(500).json({ message: "Failed to send test email" });
   }
 }

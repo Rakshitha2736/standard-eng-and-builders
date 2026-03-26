@@ -5,6 +5,11 @@ const adminRecipients = [
   "sivadurgeshk.23it@kongu.edu"
 ];
 
+const adminResponseRecipients = [
+  "rakshitha160306@gmail.com",
+  "rakshitham.23it@kongu.edu"
+];
+
 let transporter;
 
 function readEnv(key) {
@@ -67,6 +72,98 @@ function getTransportConfig() {
   };
 }
 
+function getFallbackTransportConfigs() {
+  const smtpUser = readEnv("SMTP_USER");
+  const smtpPass = readEnv("SMTP_PASS");
+  const smtpHost = readEnv("SMTP_HOST").toLowerCase();
+  const smtpService = readEnv("SMTP_SERVICE").toLowerCase();
+
+  if (!smtpUser || !smtpPass) {
+    return [];
+  }
+
+  const baseTimeouts = {
+    connectionTimeout: Number(readEnv("SMTP_CONNECTION_TIMEOUT_MS") || 20000),
+    greetingTimeout: Number(readEnv("SMTP_GREETING_TIMEOUT_MS") || 15000),
+    socketTimeout: Number(readEnv("SMTP_SOCKET_TIMEOUT_MS") || 30000)
+  };
+
+  const candidates = [];
+
+  if (!smtpService && smtpHost === "smtp.gmail.com") {
+    candidates.push({
+      ...baseTimeouts,
+      service: "gmail",
+      secure: false,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass
+      }
+    });
+  }
+
+  if (smtpService === "gmail" || smtpHost === "smtp.gmail.com") {
+    candidates.push({
+      ...baseTimeouts,
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass
+      }
+    });
+  }
+
+  return candidates;
+}
+
+async function sendMailWithRetry(mailOptions, failureLabel) {
+  const mailTransporter = getTransporter();
+
+  if (!mailTransporter) {
+    const reason =
+      "SMTP is not configured. Set SMTP_SERVICE or SMTP_HOST/SMTP_PORT along with SMTP_USER and SMTP_PASS.";
+    console.warn(reason);
+    return { sent: false, reason };
+  }
+
+  const fallbackConfigs = getFallbackTransportConfigs();
+  const failureReasons = [];
+
+  try {
+    await mailTransporter.sendMail(mailOptions);
+    return { sent: true };
+  } catch (error) {
+    const reason = error?.message || "Unknown SMTP error";
+    failureReasons.push(`primary: ${reason}`);
+    console.error(failureLabel, reason);
+    resetTransporter();
+  }
+
+  for (const fallbackConfig of fallbackConfigs) {
+    const fallbackTransporter = nodemailer.createTransport(fallbackConfig);
+
+    try {
+      await fallbackTransporter.sendMail(mailOptions);
+      return { sent: true };
+    } catch (error) {
+      const reason = error?.message || "Unknown SMTP error";
+      const strategy =
+        fallbackConfig.service === "gmail"
+          ? "gmail-service"
+          : `${fallbackConfig.host}:${fallbackConfig.port}`;
+      failureReasons.push(`${strategy}: ${reason}`);
+      console.error(`${failureLabel} (${strategy})`, reason);
+    }
+  }
+
+  return {
+    sent: false,
+    reason: failureReasons.join(" | ") || "Unknown SMTP error"
+  };
+}
+
 function getTransporter() {
   if (transporter) {
     return transporter;
@@ -104,19 +201,10 @@ function buildEmailHtml(enquiry) {
 }
 
 export async function sendEnquiryNotification(enquiry) {
-  const mailTransporter = getTransporter();
-
-  if (!mailTransporter) {
-    const reason =
-      "SMTP is not configured. Set SMTP_SERVICE or SMTP_HOST/SMTP_PORT along with SMTP_USER and SMTP_PASS.";
-    console.warn(reason);
-    return { sent: false, reason };
-  }
-
   const fromAddress = readEnv("MAIL_FROM") || readEnv("SMTP_USER");
 
-  try {
-    await mailTransporter.sendMail({
+  return sendMailWithRetry(
+    {
       from: fromAddress,
       to: adminRecipients.join(", "),
       subject: `New Enquiry: ${enquiry.productInterest}`,
@@ -131,15 +219,9 @@ export async function sendEnquiryNotification(enquiry) {
         `Created At: ${enquiry.createdAt}`
       ].join("\n"),
       html: buildEmailHtml(enquiry)
-    });
-
-    return { sent: true };
-  } catch (error) {
-    const reason = error?.message || "Unknown SMTP error";
-    console.error("Failed to send enquiry notification email", reason);
-    resetTransporter();
-    return { sent: false, reason };
-  }
+    },
+    "Failed to send enquiry notification email"
+  );
 }
 
 function buildResponseHtml(enquiry, responseText) {
@@ -155,21 +237,12 @@ function buildResponseHtml(enquiry, responseText) {
 }
 
 export async function sendResponseToCustomer(enquiry, responseText) {
-  const mailTransporter = getTransporter();
-
-  if (!mailTransporter) {
-    const reason =
-      "SMTP is not configured. Set SMTP_SERVICE or SMTP_HOST/SMTP_PORT along with SMTP_USER and SMTP_PASS.";
-    console.warn(reason);
-    return { sent: false, reason };
-  }
-
   const fromAddress = readEnv("MAIL_FROM") || readEnv("SMTP_USER");
 
-  try {
-    await mailTransporter.sendMail({
+  return sendMailWithRetry(
+    {
       from: fromAddress,
-      to: enquiry.email,
+      to: adminResponseRecipients.join(", "),
       subject: `Response to your enquiry: ${enquiry.productInterest}`,
       text: [
         `Dear ${enquiry.name},`,
@@ -181,13 +254,7 @@ export async function sendResponseToCustomer(enquiry, responseText) {
         "Standard Engineering and Builders"
       ].join("\n"),
       html: buildResponseHtml(enquiry, responseText)
-    });
-
-    return { sent: true };
-  } catch (error) {
-    const reason = error?.message || "Unknown SMTP error";
-    console.error("Failed to send response email to customer", reason);
-    resetTransporter();
-    return { sent: false, reason };
-  }
+    },
+    "Failed to send response email to customer"
+  );
 }

@@ -1,6 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BackButton from "../components/BackButton";
 import { fetchProducts, submitEnquiry } from "../api";
+
+const DEFAULT_SERVICE_OPTIONS = [
+  "Construction Materials",
+  "Structural Works",
+  "Fabrication Works",
+  "Finishing Works",
+  "Building Services",
+  "Construction Projects"
+];
 
 const initialState = {
   name: "",
@@ -16,8 +25,21 @@ function EnquiryPage() {
   const [status, setStatus] = useState({ type: "", message: "" });
 
   useEffect(() => {
-    fetchProducts().then(setProducts).catch(() => setProducts([]));
+    fetchProducts()
+      .then(setProducts)
+      .catch(() => {
+        setProducts([]);
+      });
   }, []);
+
+  const serviceOptions = useMemo(() => {
+    const fromProducts = products
+      .map((product) => String(product?.name || "").trim())
+      .filter(Boolean);
+
+    const options = fromProducts.length ? fromProducts : DEFAULT_SERVICE_OPTIONS;
+    return [...new Set(options)];
+  }, [products]);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -96,9 +118,9 @@ function EnquiryPage() {
             required
           >
             <option value="">Select a service</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.name}>
-                {product.name}
+            {serviceOptions.map((option, index) => (
+              <option key={`${option}-${index}`} value={option}>
+                {option}
               </option>
             ))}
           </select>

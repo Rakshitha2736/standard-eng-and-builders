@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BackButton from "../components/BackButton";
 import {
   createProduct,
@@ -12,6 +12,14 @@ import {
 
 const ADMIN_TOKEN_KEY = "standard_admin_token_v2";
 const LEGACY_ADMIN_TOKEN_KEY = "standard_admin_token";
+const CORE_CATEGORIES = [
+  "Construction Materials",
+  "Structural Works",
+  "Fabrication Works",
+  "Finishing Works",
+  "Building Services",
+  "Construction Projects"
+];
 
 function readStoredAdminToken() {
   // One-time cleanup for legacy token key from older deployments.
@@ -108,6 +116,21 @@ function mapProductToForm(product) {
   };
 }
 
+function buildAdminRowKey(item, index) {
+  const primary = String(item?.id || "").trim();
+  const createdAt = String(item?.createdAt || "").trim();
+
+  if (primary && createdAt) {
+    return `${primary}-${createdAt}-${index}`;
+  }
+
+  if (primary) {
+    return `${primary}-${index}`;
+  }
+
+  return `row-${index}`;
+}
+
 function AdminDashboardPage() {
   const [productFormMode, setProductFormMode] = useState("create");
   const [activeTab, setActiveTab] = useState("responses");
@@ -119,6 +142,11 @@ function AdminDashboardPage() {
   const [credentials, setCredentials] = useState({ username: "", password: "" });
   const [productForm, setProductForm] = useState(createEmptyProductForm());
   const [editingProductId, setEditingProductId] = useState("");
+
+  const availableCategories = useMemo(() => {
+    const merged = [...CORE_CATEGORIES, ...products.map((item) => String(item.category || "").trim())];
+    return [...new Set(merged.filter(Boolean))];
+  }, [products]);
 
   function loadEnquiries(activeToken = token) {
     if (!activeToken) {
@@ -153,6 +181,20 @@ function AdminDashboardPage() {
       loadProducts();
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!token || activeTab !== "responses") {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      loadEnquiries(token);
+    }, 10000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [token, activeTab]);
 
   async function handleLogin(event) {
     event.preventDefault();
@@ -282,6 +324,11 @@ function AdminDashboardPage() {
   }
 
   function handleEditProduct(product) {
+    if (!String(product?.id || "").trim()) {
+      setStatusMessage(buildStatusMessage("This product cannot be edited because it has no valid ID.", "error"));
+      return;
+    }
+
     setActiveTab("products");
     setProductFormMode("edit");
     setEditingProductId(product.id);
@@ -297,6 +344,11 @@ function AdminDashboardPage() {
   }
 
   async function handleDeleteProduct(product) {
+    if (!String(product?.id || "").trim()) {
+      setStatusMessage(buildStatusMessage("This product cannot be deleted because it has no valid ID.", "error"));
+      return;
+    }
+
     const confirmed = window.confirm(`Delete product \"${product.name}\"?`);
 
     if (!confirmed) {
@@ -403,12 +455,12 @@ function AdminDashboardPage() {
             <p className="status-message">No enquiries submitted yet.</p>
           )}
 
-          {enquiries.map((enquiry) => {
+          {enquiries.map((enquiry, enquiryIndex) => {
             const statusMeta = getEnquiryStatusMeta(enquiry);
             const responseText = getResponseText(enquiry, responseDrafts);
 
             return (
-              <article key={enquiry.id} className="admin-card">
+              <article key={buildAdminRowKey(enquiry, enquiryIndex)} className="admin-card">
                 <div className="admin-card-top">
                   <h3>{enquiry.name}</h3>
                   <span className={`pill ${statusMeta.className}`}>{statusMeta.label}</span>
@@ -479,12 +531,18 @@ function AdminDashboardPage() {
 
             <label>
               Category
-              <input
-                type="text"
+              <select
                 value={productForm.category}
                 onChange={(event) => handleProductFieldChange("category", event.target.value)}
                 required
-              />
+              >
+                <option value="">Select a category</option>
+                {availableCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label>
@@ -493,6 +551,16 @@ function AdminDashboardPage() {
                 rows="4"
                 value={productForm.description}
                 onChange={(event) => handleProductFieldChange("description", event.target.value)}
+              />
+            </label>
+
+            <label>
+              Image URL
+              <input
+                type="url"
+                placeholder="https://example.com/product-image.jpg"
+                value={productForm.image}
+                onChange={(event) => handleProductFieldChange("image", event.target.value)}
               />
             </label>
 
@@ -562,8 +630,8 @@ function AdminDashboardPage() {
               <p className="status-message">No products found.</p>
             )}
 
-            {products.map((product) => (
-              <article key={product.id} className="admin-card admin-product-card">
+            {products.map((product, productIndex) => (
+              <article key={buildAdminRowKey(product, productIndex)} className="admin-card admin-product-card">
                 <div className="admin-card-top">
                   <h3>{product.name}</h3>
                   <span className="pill new">{product.category}</span>

@@ -1,10 +1,86 @@
 import { products } from "../data/products.js";
+import { ObjectId } from "mongodb";
 import { getProductsCollection } from "../data/mongoClient.js";
 
 const localProducts = [...products];
 
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildMongoLookupFilter(idOrObjectId) {
+  const normalizedId = String(idOrObjectId || "").trim();
+
+  if (!normalizedId) {
+    return { id: "" };
+  }
+
+  if (ObjectId.isValid(normalizedId)) {
+    return {
+      $or: [{ id: normalizedId }, { _id: new ObjectId(normalizedId) }]
+    };
+  }
+
+  return { id: normalizedId };
+}
+
+function mapLegacySpecs(specs = {}) {
+  return {
+    material: String(specs.material || "").trim(),
+    operation: String(specs.operation || "").trim(),
+    width: String(specs.width || "").trim(),
+    finish: String(specs.finish || "").trim()
+  };
+}
+
+function normalizeMongoProductDocument(document = {}) {
+  const {
+    _id,
+    specifications,
+    unitPrice,
+    createdBy,
+    stock,
+    minStock,
+    unit,
+    grade,
+    isActive,
+    __v,
+    ...rest
+  } = document;
+
+  const fallbackSpecs = specifications
+    ? {
+        material: specifications.material || "",
+        operation: specifications.dimensions || specifications.operation || "",
+        width: specifications.weight || specifications.width || "",
+        finish: specifications.finish || ""
+      }
+    : {};
+
+  const normalizedSpecs = mapLegacySpecs({
+    ...fallbackSpecs,
+    ...(rest.specs || {})
+  });
+
+  const normalizedId = String(rest.id || (_id ? String(_id) : "")).trim();
+  const normalizedDescription = String(rest.description || "").trim();
+  const normalizedImage = String(rest.image || specifications?.image || "").trim();
+  const normalizedPrice = String(
+    rest.price || (typeof unitPrice === "number" ? `${unitPrice}` : unitPrice || "")
+  ).trim();
+  const normalizedShortDescription =
+    String(rest.shortDescription || "").trim() ||
+    (normalizedDescription ? `${normalizedDescription.slice(0, 130)}...` : "");
+
+  return {
+    ...rest,
+    id: normalizedId,
+    shortDescription: normalizedShortDescription,
+    description: normalizedDescription,
+    image: normalizedImage,
+    price: normalizedPrice,
+    specs: normalizedSpecs
+  };
 }
 
 function hasOwn(obj, key) {
@@ -156,7 +232,7 @@ export async function getProducts(req, res) {
         : {};
 
     const items = await productsCollection.find(query).sort({ id: 1 }).toArray();
-    const normalizedItems = items.map(({ _id, ...item }) => item);
+    const normalizedItems = items.map((item) => normalizeMongoProductDocument(item));
     res.json(normalizedItems);
   } catch (error) {
     console.error("Failed to fetch products from MongoDB", error);
@@ -180,14 +256,14 @@ export async function getProductById(req, res) {
   }
 
   try {
-    const product = await productsCollection.findOne({ id: req.params.id });
+    const product = await productsCollection.findOne(buildMongoLookupFilter(req.params.id));
 
     if (!product) {
       res.status(404).json({ message: "Product not found" });
       return;
     }
 
-    const { _id, ...normalizedProduct } = product;
+    const normalizedProduct = normalizeMongoProductDocument(product);
     res.json(normalizedProduct);
   } catch (error) {
     console.error("Failed to fetch product from MongoDB", error);
@@ -252,20 +328,18 @@ export async function updateProduct(req, res) {
   }
 
   try {
-    const existingProductDoc = await productsCollection.findOne({ id: req.params.id });
+    const lookupFilter = buildMongoLookupFilter(req.params.id);
+    const existingProductDoc = await productsCollection.findOne(lookupFilter);
 
     if (!existingProductDoc) {
       res.status(404).json({ message: "Product not found" });
       return;
     }
 
-    const { _id, ...existingProduct } = existingProductDoc;
+    const existingProduct = normalizeMongoProductDocument(existingProductDoc);
     const updatedProduct = mergeProduct(existingProduct, value);
 
-    const result = await productsCollection.updateOne(
-      { id: req.params.id },
-      { $set: updatedProduct }
-    );
+    const result = await productsCollection.updateOne(lookupFilter, { $set: updatedProduct });
 
     if (!result.matchedCount) {
       res.status(404).json({ message: "Product not found" });
@@ -296,7 +370,7 @@ export async function deleteProduct(req, res) {
   }
 
   try {
-    const result = await productsCollection.deleteOne({ id: req.params.id });
+    const result = await productsCollection.deleteOne(buildMongoLookupFilter(req.params.id));
 
     if (!result.deletedCount) {
       res.status(404).json({ message: "Product not found" });
